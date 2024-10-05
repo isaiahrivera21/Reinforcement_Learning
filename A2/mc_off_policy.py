@@ -41,7 +41,7 @@ class OffPolicyMC(BaseModel):
 
     def __init__(self, **data: Any) -> None:
         super().__init__(**data)
-        self.behavior = EpsilonSoftPolicy(l = 0.1,
+        self.behavior = EpsilonSoftPolicy(l = 0.9,
                                           num_actions=9,
                                           target_policy=self.target)
 
@@ -50,7 +50,7 @@ class OffPolicyMC(BaseModel):
         # We have track_width*track_hegiht potential spaces the car can be in. (Including the ones that are zero) (most won't be populated).
         x,y = state.position
         vx,vy = state.velocity
-        return y * self.env.trackA.shape[1] * 25 + x * 25 + vy * 5 + vx # not sure about this 
+        return y * self.env.track.shape[1] * 25 + x * 25 + vy * 5 + vx # not sure about this 
 
     def _update_G(self,G,r):
         return self.l*G + r
@@ -109,15 +109,15 @@ def main():
     train = True
 
     
-    rt = RaceTrack(trackA=np.ones((32,17), dtype=float),trackB=np.ones((32,32), dtype=float))
-    track_a = rt.generate_track_a()
-    env = EnviornmentA(trackA=track_a) 
+    rt = RaceTrack(trackA=np.ones((32,17), dtype=float),trackB=np.ones((30,32), dtype=float))
+    track_b = rt.generate_track_b()
+    env = EnviornmentA(track=track_b) 
     
 
     nA = 9
-    nS = env.trackA.shape[0] * env.trackA.shape[1] * 25
+    nS = env.track.shape[0] * env.track.shape[1] * 25
 
-    total_ep = 100000
+    total_ep = 100
     l = 0.9 # lambda (discount)
     Q = np.zeros((nS, nA))
     # Q = np.full((nS, nA), 500.0)
@@ -132,7 +132,7 @@ def main():
                     env = env)
     if train:    
         target_policy,reward_hist = mc.off_policy_mc_control()
-        filename = '100k_mc_results.pkl'
+        filename = '100_mc_results.pkl'
 
         # Use pickle to save the results
         with open(filename, 'wb') as file:
@@ -142,7 +142,7 @@ def main():
     else:
 
         np.set_printoptions(threshold = np.inf)
-        filename = '100k_mc_results.pkl'
+        filename = '100_mc_results.pkl'
         with open(filename, 'rb') as file:
             n_target_policy, n_reward_hist = pickle.load(file)
 
@@ -154,24 +154,24 @@ def main():
         plt.show()
 
         # we don't care about most of this we just want to run one episode
-    for i in range(1):
-        rt2 = RaceTrack(trackA=np.ones((32,17), dtype=float),trackB=np.ones((32,32), dtype=float))
-        track_a2 = rt2.generate_track_a()
-        env2 = EnviornmentA(trackA=track_a2) 
-        terminate = False 
-        state = env2._reset_pos() 
-        action = target_policy[mc.state_index(state)]
+    # for i in range(1):
+    #     rt2 = RaceTrack(trackA=np.ones((32,17), dtype=float),trackB=np.ones((30,32), dtype=float))
+    #     track_a2 = rt2.generate_track_a()
+    #     env2 = EnviornmentA(track=track_a2) 
+    #     terminate = False 
+    #     state = env2._reset_pos() 
+    #     action = target_policy[mc.state_index(state)]
 
-        while not terminate:
-            observation, reward, terminate = env2.step(a = action,state = state)
-            state = observation
-            action = target_policy[mc.state_index(state)]
-            print(state,action)
+    #     while not terminate:
+    #         observation, reward, terminate = env2.step(a = action,state = state)
+    #         state = observation
+    #         action = target_policy[mc.state_index(state)]
+    #         print(state,action)
         
 
-        #     ax = plt.subplot(2, 5, i + 1)
-        #     ax.axis('off')
-        # ax.imshow(track_a2, cmap='GnBu')
+    #     #     ax = plt.subplot(2, 5, i + 1)
+    #     #     ax.axis('off')
+    #     # ax.imshow(track_a2, cmap='GnBu')
            
 
         

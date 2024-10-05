@@ -16,7 +16,7 @@ FINISH= 0.4
 class RaceTrack(BaseModel):
 
     trackA : NDArray[Shape["32, 17"],float]
-    trackB : NDArray[Shape["32, 32"],float]
+    trackB : NDArray[Shape["30, 32"],float]
 
     def generate_track_a(self):
         self.trackA[14:, 0] =   0  #[14 and onwards in the first column]
@@ -34,28 +34,41 @@ class RaceTrack(BaseModel):
         self.trackA[0:6,16] = FINISH
 
         return self.trackA
-    def generate_track_b():
-        pass
+    def generate_track_b(self):
+        for i in range(14):
+            self.trackB[:(-3 - i), i] = 0
+        
+        self.trackB[3:7, 11] = 1
+        self.trackB[2:8, 12] = 1
+        self.trackB[1:9, 13] = 1
+    
+        self.trackB[0, 14:16] = 0
+        self.trackB[-17:, -9:] = 0
+        self.trackB[12, -8:] = 0
+        self.trackB[11, -6:] = 0
+        self.trackB[10, -5:] = 0
+        self.trackB[9, -2:] = 0
+
+        self.trackB[-1] = np.where(self.trackB[-1] == 0, 0, START)
+        self.trackB[:, -1] = np.where(self.trackB[:, -1] == 0, 0, FINISH)
+        return self.trackB
 
 class State(NamedTuple):
     position: np.ndarray
     velocity: np.ndarray
 
-
-# this can probs work for both envs. Just need to make a slight change
 class EnviornmentA(BaseModel):
-    trackA : NDArray[Shape["32, 17"],float]
+    track : Union[NDArray[Shape["32, 17"], float],NDArray[Shape["30, 32"], float]]
+
     actions : NDArray = Field(default_factory=lambda: np.array(list(itertools.product([-1, 0, 1], [-1, 0, 1]))), description="All 9 actions the car can take")
     starting_states: NDArray = Field(default_factory=lambda: np.array([]), description="Starting squares of the car")
     ending_states: NDArray = Field(default_factory=lambda: np.array([]), description="Ending squares of the car")
-    # should add something about the number of states
-
     noise: float = Field(default=0.1, description="Probability that we do not update our speed")
     
     def __init__(self, **data: Any) -> None:
         super().__init__(**data)
-        self.starting_states = np.dstack(np.where(self.trackA == START))[0]
-        self.ending_states = np.dstack(np.where(self.trackA == FINISH))[0]
+        self.starting_states = np.dstack(np.where(self.track == START))[0]
+        self.ending_states = np.dstack(np.where(self.track == FINISH))[0]
     
     def _vel_check(self,curr_vel,accel):
         next_vel = np.clip(curr_vel + accel, a_min=0, a_max=4)
@@ -67,7 +80,7 @@ class EnviornmentA(BaseModel):
 
     def _finish_check(self,proj_pos):
 
-        if(self.trackA[proj_pos[0],proj_pos[1]] == FINISH):
+        if(self.track[proj_pos[0],proj_pos[1]] == FINISH):
             # print("FINISHED BOIIII")
             return True
         
@@ -78,7 +91,7 @@ class EnviornmentA(BaseModel):
         proj_y = proj_pos[0]
         proj_x = proj_pos[1] #think we just check if the value of the state is equal to 0
         if (proj_y < 0) or (proj_x > 16): return True
-        if(self.trackA[proj_y,proj_x] == 0.0):
+        if(self.track[proj_y,proj_x] == 0.0):
             # print("ACCIDENT AHHHHHH")
             # problem child function
             return True
@@ -129,17 +142,17 @@ class EnviornmentA(BaseModel):
 
 def main():
 
-    rt = RaceTrack(trackA=np.ones((32,17), dtype=float),trackB=np.ones((32,32), dtype=float))
+    rt = RaceTrack(trackA=np.ones((32,17), dtype=float),trackB=np.ones((30,32), dtype=float))
     track_a = rt.generate_track_a()
+    track_b = rt.generate_track_b()
 
     plt.figure(figsize=(10, 5))
-    plt.imshow(track_a,cmap='Pastel1_r')
+    plt.imshow(track_b,cmap='Pastel1_r')
     plt.show()
 
-    env= EnviornmentA(trackA=track_a)
+    env= EnviornmentA(track=track_b)
     print(env.starting_states)
     print(env.ending_states)
-    breakpoint()
 
 
 if __name__=="__main__":
