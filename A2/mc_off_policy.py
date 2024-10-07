@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from racetrack import EnviornmentA,State,RaceTrack
 
 class EpsilonSoftPolicy(BaseModel):
-    epsilon: float = Field(default=0.1, description="Defines probability we preform an exploratory action") 
+    epsilon: float = Field(default=0.2, description="Defines probability we preform an exploratory action") 
     num_actions : int 
     target_policy : NDArray
 
@@ -67,8 +67,8 @@ class OffPolicyMC(BaseModel):
     def episode(self,b,noise=True):
         terminate = False 
         state = self.env._reset_pos() 
-
-        action, p = b(self.state_index(state))
+    
+        action, p = b(((*state.position, *state.velocity)))
         total_reward = 0
         hist = []
 
@@ -77,13 +77,14 @@ class OffPolicyMC(BaseModel):
             # updates
             total_reward += reward
             state = observation
-            action, p = b(self.state_index(state))
+            action, p = b((*state.position, *state.velocity)) # hmmmmmm
+            
             hist.append((state,action,reward,p)) 
 
             # start debugging this 
             # print("Step Summary",(state,action,reward,p))
             
-
+        # breakpoint()
         return hist,total_reward
 
     def off_policy_mc_control(self):
@@ -97,32 +98,30 @@ class OffPolicyMC(BaseModel):
             while t:
                 state,action,reward,p = t.pop()
                 G = self.l*G + reward
-                self.C[self.state_index(state)][action] = self.C[self.state_index(state)][action] + W
-                self.Q[self.state_index(state)][action] = self.Q[self.state_index(state)][action] + (W/self.C[self.state_index(state)][action]) * G - self.Q[self.state_index(state)][action]
+                S = (*state.position, *state.velocity)
+                self.C[S][action] = self.C[S][action] + W
+                self.Q[S][action] = self.Q[S][action] + (W/self.C[S][action]) * G - self.Q[S][action]
                 # choose a new state based on argmaxing something
-                self.target[self.state_index(state)] = np.argmax(self.Q[self.state_index(state)]) # actions will be stored (or the number that corresponds to an action)
-                if action != self.target[self.state_index(state)] : break
+                self.target[S] = np.argmax(self.Q[S]) # actions will be stored (or the number that corresponds to an action)
+                if action != self.target[S] : break
                 W = W * (1 / p)
         return self.target,reward_hist
 
 def main():
-    train = True
+    train = False
 
-    
     rt = RaceTrack(trackA=np.ones((32,17), dtype=float),trackB=np.ones((30,32), dtype=float))
-    track_b = rt.generate_track_b()
-    env = EnviornmentA(track=track_b) 
+    track_a = rt.generate_track_a()
+    env = EnviornmentA(track=track_a)
     
 
     nA = 9
-    nS = env.track.shape[0] * env.track.shape[1] * 25
-
-    total_ep = 100
+    nS =  (env.track.shape[0], env.track.shape[1], 5, 5) # now this is a tuple with 4 elements 
+    total_ep = 1000
     l = 0.9 # lambda (discount)
-    Q = np.zeros((nS, nA))
-    # Q = np.full((nS, nA), 500.0)
+    Q = np.random.normal(size=(*nS, nA))
     C = np.zeros_like(Q)
-    pi = np.argmax(Q, axis=1)
+    pi = np.argmax(Q, axis=-1)
 
     mc = OffPolicyMC(total_epsiodes=total_ep,
                     l = l,
@@ -132,7 +131,7 @@ def main():
                     env = env)
     if train:    
         target_policy,reward_hist = mc.off_policy_mc_control()
-        filename = '100_mc_results.pkl'
+        filename = '1k_mc_resultsA.pkl'
 
         # Use pickle to save the results
         with open(filename, 'wb') as file:
@@ -142,7 +141,7 @@ def main():
     else:
 
         np.set_printoptions(threshold = np.inf)
-        filename = '100_mc_results.pkl'
+        filename = '1k_mc_resultsA.pkl'
         with open(filename, 'rb') as file:
             n_target_policy, n_reward_hist = pickle.load(file)
 
@@ -154,33 +153,31 @@ def main():
         plt.show()
 
         # we don't care about most of this we just want to run one episode
-    # for i in range(1):
-    #     rt2 = RaceTrack(trackA=np.ones((32,17), dtype=float),trackB=np.ones((30,32), dtype=float))
-    #     track_a2 = rt2.generate_track_a()
-    #     env2 = EnviornmentA(track=track_a2) 
-    #     terminate = False 
-    #     state = env2._reset_pos() 
-    #     action = target_policy[mc.state_index(state)]
+    for i in range(1):
+        rt2 = RaceTrack(trackA=np.ones((32,17), dtype=float),trackB=np.ones((30,32), dtype=float))
+        track = rt2.generate_track_a()
+        env2 = EnviornmentA(track=track) 
+        terminate = False 
+        state = env2._reset_pos() 
+        action = n_target_policy[(*state.position,*state.velocity)]
 
-    #     while not terminate:
-    #         observation, reward, terminate = env2.step(a = action,state = state)
-    #         state = observation
-    #         action = target_policy[mc.state_index(state)]
-    #         print(state,action)
-        
-
-    #     #     ax = plt.subplot(2, 5, i + 1)
-    #     #     ax.axis('off')
-    #     # ax.imshow(track_a2, cmap='GnBu')
+        while not terminate:
+            track[state.position[0], state.position[1]] = 0.6 
+            observation, reward, terminate = env2.step(a = action,state = state)
+            state = observation
+            action = n_target_policy[(*state.position,*state.velocity)]
+            # print(state,action)
+            ax = plt.subplot()
+            ax.axis('off')
+        ax.imshow(track, cmap='GnBu')
+        plt.show()
            
-
-        
             
 
 
 
 
-
+True
 
 
 
