@@ -111,15 +111,16 @@ def main():
     train = False
 
     rt = RaceTrack(trackA=np.ones((32,17), dtype=float),trackB=np.ones((30,32), dtype=float))
-    track_a = rt.generate_track_a()
-    env = EnviornmentA(track=track_a)
+    track = rt.generate_track_b()
+    env = EnviornmentA(track=track)
     
 
     nA = 9
     nS =  (env.track.shape[0], env.track.shape[1], 5, 5) # now this is a tuple with 4 elements 
-    total_ep = 1000
+    total_ep = 100000
     l = 0.9 # lambda (discount)
     Q = np.random.normal(size=(*nS, nA))
+    Q-=500
     C = np.zeros_like(Q)
     pi = np.argmax(Q, axis=-1)
 
@@ -131,7 +132,7 @@ def main():
                     env = env)
     if train:    
         target_policy,reward_hist = mc.off_policy_mc_control()
-        filename = '1k_mc_resultsA.pkl'
+        filename = '100k_mc_resultsB_OP.pkl'
 
         # Use pickle to save the results
         with open(filename, 'wb') as file:
@@ -141,11 +142,13 @@ def main():
     else:
 
         np.set_printoptions(threshold = np.inf)
-        filename = '1k_mc_resultsA.pkl'
+        filename = '100k_mc_resultsB_OP.pkl'
         with open(filename, 'rb') as file:
-            n_target_policy, n_reward_hist = pickle.load(file)
+            target_policy, n_reward_hist = pickle.load(file)
 
-        print(n_target_policy)
+        
+
+        print(target_policy)
         # print(n_reward_hist)
         plt.figure()
         plt.plot(range(1, total_ep + 1), n_reward_hist)  # Start range from 1 to avoid log(0)
@@ -153,24 +156,24 @@ def main():
         plt.show()
 
         # we don't care about most of this we just want to run one episode
-    for i in range(1):
-        rt2 = RaceTrack(trackA=np.ones((32,17), dtype=float),trackB=np.ones((30,32), dtype=float))
-        track = rt2.generate_track_a()
-        env2 = EnviornmentA(track=track) 
+    for i in range(4):
         terminate = False 
-        state = env2._reset_pos() 
-        action = n_target_policy[(*state.position,*state.velocity)]
+        state = env._reset_pos() 
+        action = target_policy[(*state.position,*state.velocity)]
+        print("-----------(NEW EP)-----------")
 
         while not terminate:
             track[state.position[0], state.position[1]] = 0.6 
-            observation, reward, terminate = env2.step(a = action,state = state)
+            observation, reward, terminate = env.step(a = action,state = state,noise=False)
             state = observation
-            action = n_target_policy[(*state.position,*state.velocity)]
-            # print(state,action)
-            ax = plt.subplot()
-            ax.axis('off')
-        ax.imshow(track, cmap='GnBu')
-        plt.show()
+            action = target_policy[(*state.position,*state.velocity)]
+            print(state,action)
+        
+        ax = plt.subplot(2, 2,i+1)
+        ax.axis('off')
+        ax.imshow(track, cmap='Pastel1_r')
+
+    plt.show()
            
             
 

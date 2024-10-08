@@ -115,17 +115,18 @@ class EnviornmentA(BaseModel):
         start_idx = np.random.choice(self.starting_states.shape[0])
         return State(self.starting_states[start_idx],np.array([0,0]))
 
-    def step(self,a,state: State):
+    def step(self,a,state: State,noise = True):
         # need to get the current state
         
         reward = -1
         terminate = False
         position, velocity = state
 
-        if np.random.rand() <= self.noise:
+        if np.random.rand() <= self.noise and noise:
             # Apply noise: choose the action with no acceleration (actions[4])
             accel = self.actions[4]
         else:
+
             # If the agent is in the starting state, restrict to specific actions
             if any(np.array_equal(position, state) for state in self.starting_states):
                 index = np.random.randint(1, 2)  # Restrict to specific action indices
@@ -133,6 +134,11 @@ class EnviornmentA(BaseModel):
             else:
                 # Otherwise, use the provided action 'a'
                 accel = self.actions[a]
+
+        # accel = self.actions[a]
+
+
+        # refactor some step stuff. Should only use the priors when training. Here you are still doing the other stuff
         
         next_vel = self._vel_check(velocity,accel)
         next_pos = np.array([position[0]+next_vel[0],position[1]+next_vel[1]])
