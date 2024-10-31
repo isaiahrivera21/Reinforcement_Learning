@@ -1,4 +1,4 @@
-# READ ME
+# Assignment 3 Description
 Replicate the experiment whose results are shown in the lower part 
 of Figure 8.8, then try the same experiment but with b = 3. 
 Discuss the meaning of your results.
