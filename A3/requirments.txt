@@ -1,0 +1,4 @@
+pydantic
+numpydantic
+pydantic-settings
+tdqm
